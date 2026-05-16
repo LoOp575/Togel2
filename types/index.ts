@@ -35,12 +35,13 @@ export interface AnalyzerStats {
 }
 
 export interface ScoreWeights {
-  positionScore: number; // 0.35
-  chainScore: number; // 0.25
+  positionScore: number; // 0.28
+  chainScore: number; // 0.20
   recencyScore: number; // 0.15
   gapScore: number; // 0.10
   sumScore: number; // 0.10
   patternScore: number; // 0.05
+  dayScore: number; // 0.12
 }
 
 export interface CandidateScore {
@@ -52,6 +53,7 @@ export interface CandidateScore {
   gapScore: number;
   sumScore: number;
   patternScore: number;
+  dayScore: number;
   confidence: "Low" | "Medium" | "High";
 }
 
@@ -87,10 +89,11 @@ export interface BacktestResult {
 }
 
 export const DEFAULT_WEIGHTS: ScoreWeights = {
-  positionScore: 0.35,
-  chainScore: 0.25,
+  positionScore: 0.28,
+  chainScore: 0.2,
   recencyScore: 0.15,
   gapScore: 0.1,
   sumScore: 0.1,
   patternScore: 0.05,
+  dayScore: 0.12,
 };
