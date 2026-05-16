@@ -6,13 +6,42 @@ import { PageHeader } from "@/components/PageHeader";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 import { StatCard } from "@/components/StatCard";
 import { loadHistory } from "@/lib/data";
-import { listMarkets } from "@/lib/parser";
+import { listMarkets, parseHistory } from "@/lib/parser";
 import { scoreAllCandidates } from "@/lib/scoring";
 import { loadWeights } from "@/lib/settings";
-import { DEFAULT_WEIGHTS, type RankedCandidate, type ScoreWeights } from "@/types";
+import {
+  DEFAULT_WEIGHTS,
+  type HistoryEntry,
+  type RankedCandidate,
+  type RawHistoryEntry,
+  type ScoreWeights,
+} from "@/types";
+
+type SourceMode = "bundled" | "scrapedHK";
+
+type ScrapedHistoryPayload = {
+  ok: boolean;
+  data?: {
+    ok: boolean;
+    count: number;
+    draws: RawHistoryEntry[];
+    source: string;
+    sourceUrl: string;
+    fetchedAt: string;
+    message?: string;
+    error?: string;
+  };
+  error?: string;
+};
 
 export default function PredictionPage() {
-  const all = useMemo(() => loadHistory(), []);
+  const bundled = useMemo(() => loadHistory(), []);
+  const [sourceMode, setSourceMode] = useState<SourceMode>("bundled");
+  const [scrapedHistory, setScrapedHistory] = useState<HistoryEntry[]>([]);
+  const [scrapeMessage, setScrapeMessage] = useState<string>("");
+  const [scrapeLoading, setScrapeLoading] = useState(false);
+
+  const all = sourceMode === "scrapedHK" && scrapedHistory.length > 0 ? scrapedHistory : bundled;
   const markets = useMemo(() => ["ALL", ...listMarkets(all)], [all]);
   const [market, setMarket] = useState("ALL");
   const [weights, setWeights] = useState<ScoreWeights>(DEFAULT_WEIGHTS);
@@ -24,6 +53,40 @@ export default function PredictionPage() {
   useEffect(() => {
     setWeights(loadWeights());
   }, []);
+
+  useEffect(() => {
+    if (!markets.includes(market)) setMarket("ALL");
+  }, [market, markets]);
+
+  async function fetchScrapedHKHistory() {
+    setScrapeLoading(true);
+    setScrapeMessage("Fetching HK draw history from configured source...");
+    try {
+      const response = await fetch("/api/draws/history?market=HK", { cache: "no-store" });
+      const payload = (await response.json()) as ScrapedHistoryPayload;
+      if (!payload.data?.draws) {
+        setScrapeMessage(payload.error ?? "Scraped history API returned no data.");
+        return;
+      }
+
+      const parsed = parseHistory(payload.data.draws);
+      if (parsed.length === 0) {
+        setScrapeMessage(payload.data.error ?? "No valid HK 4D history rows were found.");
+        return;
+      }
+
+      setScrapedHistory(parsed);
+      setSourceMode("scrapedHK");
+      setMarket("HK");
+      setScrapeMessage(
+        `Loaded ${parsed.length} HK draws from ${payload.data.source}. Verify source before relying on it.`
+      );
+    } catch (error) {
+      setScrapeMessage(error instanceof Error ? error.message : "Unknown scraped history error");
+    } finally {
+      setScrapeLoading(false);
+    }
+  }
 
   useEffect(() => {
     setComputing(true);
@@ -38,6 +101,7 @@ export default function PredictionPage() {
   }, [all, market, weights]);
 
   const top = ranked[0];
+  const activeDrawCount = market === "ALL" ? all.length : all.filter((h) => h.market === market).length;
   const top10AvgScore =
     ranked.length === 0
       ? 0
@@ -50,6 +114,23 @@ export default function PredictionPage() {
         description="Ranked candidates 0000–9999 weighted by your scoring formula. Click any row to inspect its sub-score breakdown."
         actions={
           <div className="flex flex-wrap gap-2">
+            <select
+              value={sourceMode}
+              onChange={(e) => setSourceMode(e.target.value as SourceMode)}
+              className="input w-44 py-1 text-xs"
+            >
+              <option value="bundled">Bundled history</option>
+              <option value="scrapedHK" disabled={scrapedHistory.length === 0}>
+                Scraped HK history
+              </option>
+            </select>
+            <button
+              onClick={fetchScrapedHKHistory}
+              disabled={scrapeLoading}
+              className="btn py-1 text-xs"
+            >
+              {scrapeLoading ? "Fetching HK..." : "Fetch HK history"}
+            </button>
             <select
               value={market}
               onChange={(e) => setMarket(e.target.value)}
@@ -83,12 +164,19 @@ export default function PredictionPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {scrapeMessage ? <div className="card-tight text-xs text-gray-400">{scrapeMessage}</div> : null}
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <StatCard
           label="Top Candidate"
           value={top ? <span className="mono tracking-widest">{top.number}</span> : "—"}
           hint={top ? `Final score ${top.finalScore.toFixed(2)}` : undefined}
           tone="accent"
+        />
+        <StatCard
+          label="Training Draws"
+          value={activeDrawCount.toLocaleString()}
+          hint={sourceMode === "scrapedHK" ? "Scraped source" : "Bundled data"}
         />
         <StatCard
           label="Top-10 Avg Score"
