@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AiChatPanel } from "@/components/AiChatPanel";
 import { AiInsightPanel } from "@/components/AiInsightPanel";
 import { CandidateTable } from "@/components/CandidateTable";
 import { PageHeader } from "@/components/PageHeader";
@@ -141,11 +142,30 @@ export default function PredictionPage() {
   }, [all, market, weights]);
 
   const top = ranked[0];
-  const activeDrawCount = market === "ALL" ? all.length : all.filter((h) => h.market === market).length;
+  const activeHistory = market === "ALL" ? all : all.filter((h) => h.market === market);
+  const activeDrawCount = activeHistory.length;
   const top10AvgScore =
     ranked.length === 0
       ? 0
       : ranked.slice(0, 10).reduce((s, r) => s + r.finalScore, 0) / 10;
+  const chatContext = {
+    market,
+    latestDraw: activeHistory.at(-1) ?? null,
+    weights,
+    selectedCandidate: selected,
+    topCandidates: ranked.slice(0, 20).map((candidate) => ({
+      rank: candidate.rank,
+      number: candidate.number,
+      finalScore: Number(candidate.finalScore.toFixed(2)),
+      positionScore: Number(candidate.positionScore.toFixed(2)),
+      chainScore: Number(candidate.chainScore.toFixed(2)),
+      recencyScore: Number(candidate.recencyScore.toFixed(2)),
+      gapScore: Number(candidate.gapScore.toFixed(2)),
+      sumScore: Number(candidate.sumScore.toFixed(2)),
+      patternScore: Number(candidate.patternScore.toFixed(2)),
+      confidence: candidate.confidence,
+    })),
+  };
 
   return (
     <>
@@ -252,6 +272,7 @@ export default function PredictionPage() {
             error={aiError}
             onGenerate={generateAiInsight}
           />
+          <AiChatPanel context={chatContext} />
           <ScoreBreakdown candidate={selected} weights={weights} />
           <div className="card text-xs text-gray-400">
             <p className="mb-1 font-semibold text-gray-300">Current weights</p>
