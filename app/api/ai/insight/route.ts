@@ -13,6 +13,14 @@ type OpenAiResponse = {
   }>;
 };
 
+type ChatCompletionResponse = {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+};
+
 type GeminiResponse = {
   candidates?: Array<{
     content?: {
@@ -38,6 +46,10 @@ function extractOpenAiText(json: OpenAiResponse): string {
     }
   }
   return chunks.join("\n").trim();
+}
+
+function extractChatCompletionText(json: ChatCompletionResponse): string {
+  return json.choices?.[0]?.message?.content?.trim() ?? "";
 }
 
 function extractGeminiText(json: GeminiResponse): string {
@@ -112,6 +124,39 @@ async function callOpenAi(payload: AiInsightPayload, apiKey: string) {
   return parseJson(extractOpenAiText(json));
 }
 
+async function callOpenAiCompatible(payload: AiInsightPayload, apiKey: string) {
+  const model = process.env.OPENAI_COMPATIBLE_MODEL || process.env.CUSTOM_AI_MODEL || "claude-opus-4.5";
+  const baseUrl = (process.env.OPENAI_COMPATIBLE_BASE_URL || process.env.CUSTOM_AI_BASE_URL || "").replace(/\/$/, "");
+  if (!baseUrl) throw new Error("OPENAI_COMPATIBLE_BASE_URL belum dikonfigurasi.");
+
+  const { system, user } = buildPrompts(payload);
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      temperature: 0.2,
+      max_tokens: 900,
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`OpenAI-compatible API error ${response.status}: ${err.slice(0, 300)}`);
+  }
+
+  const json = (await response.json()) as ChatCompletionResponse;
+  return parseJson(extractChatCompletionText(json));
+}
+
 async function callGemini(payload: AiInsightPayload, apiKey: string) {
   const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
   const { system, user } = buildPrompts(payload);
@@ -154,13 +199,14 @@ export async function POST(request: Request) {
   const provider = (process.env.AI_PROVIDER || "auto").toLowerCase();
   const openAiKey = process.env.OPENAI_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
+  const compatibleKey = process.env.OPENAI_COMPATIBLE_API_KEY || process.env.CUSTOM_AI_API_KEY;
 
-  if (!openAiKey && !geminiKey) {
+  if (!openAiKey && !geminiKey && !compatibleKey) {
     return NextResponse.json(
       {
         ok: false,
         error:
-          "AI key belum dikonfigurasi. Tambahkan env var GEMINI_API_KEY atau OPENAI_API_KEY di Vercel.",
+          "AI key belum dikonfigurasi. Tambahkan GEMINI_API_KEY, OPENAI_API_KEY, atau OPENAI_COMPATIBLE_API_KEY di hosting Variables.",
         data: FALLBACK,
       },
       { status: 200 }
@@ -169,13 +215,17 @@ export async function POST(request: Request) {
 
   try {
     const data =
-      provider === "gemini"
-        ? await callGemini(payload, geminiKey || "")
-        : provider === "openai"
-          ? await callOpenAi(payload, openAiKey || "")
-          : geminiKey
-            ? await callGemini(payload, geminiKey)
-            : await callOpenAi(payload, openAiKey || "");
+      provider === "compatible" || provider === "custom"
+        ? await callOpenAiCompatible(payload, compatibleKey || "")
+        : provider === "gemini"
+          ? await callGemini(payload, geminiKey || "")
+          : provider === "openai"
+            ? await callOpenAi(payload, openAiKey || "")
+            : compatibleKey
+              ? await callOpenAiCompatible(payload, compatibleKey)
+              : geminiKey
+                ? await callGemini(payload, geminiKey)
+                : await callOpenAi(payload, openAiKey || "");
 
     return NextResponse.json({ ok: true, data });
   } catch (error) {
