@@ -14,6 +14,7 @@ export type AiInsightResponse = {
 
 export type AiInsightPayload = {
   market: string;
+  nextDrawDay: string | null;
   latestDraw: {
     date: string;
     market: string;
@@ -31,6 +32,7 @@ export type AiInsightPayload = {
     | "gapScore"
     | "sumScore"
     | "patternScore"
+    | "dayScore"
     | "confidence"
   >>;
   stats: {
