@@ -1,73 +1,40 @@
 import type { RawHistoryEntry } from "@/types";
 
 /**
- * User-supplied HK draw history table.
+ * Corrected user-supplied HK draw history table.
  *
- * Original data only contains day-of-week columns, not real calendar dates.
- * We assign placeholder sequential dates starting on Sunday 2025-01-05 so:
- * - chronological order is preserved
- * - leading zeroes are preserved
- * - recency/gap/backtest engines can run consistently
+ * The user confirmed the latest known draw is:
+ *   Jumat / 2026-05-15 / 3811
  *
- * Replace START_DATE with the real first draw date later if available.
+ * The table is arranged Sen-Sel-Rab-Kam-Jum-Sab-Min. We anchor the last
+ * available cell (3811) to 2026-05-15 and calculate all previous row/column
+ * dates backward from that anchor, so recency/gap/backtest order stays correct.
  */
-const START_DATE = "2025-01-05";
+const LATEST_KNOWN_DATE = "2026-05-15"; // Jumat, result 3811
+const DAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"] as const;
 
 const HK_RAW_TABLE = `
-SNIN SLSA RABU KMIS JMAT SBTU MGGU
-xxxx xxxx xxxx xxxx xxxx xxxx 5241
-7247 8468 2954 4006 6689 4791 0978
-1872 6183 2662 9356 8380 7208 0624
-4005 3297 7654 3850 4174 9240 8637
-7363 3574 9396 5035 6693 5562 4807
-0521 5604 4585 1513 9215 7123 4832
-0865 5619 6117 9858 8834 5331 3110
-2251 3805 9973 5734 1047 5009 3726
-7301 9892 6295 9079 8367 6337 0149
-5445 1673 2030 2642 4018 1579 3281
-7184 0646 8499 7820 4133 3697 6138
-6368 0413 2083 1971 9320 4782 1791
-7248 8415 4627 5170 3802 7587 2980
-9236 0655 3101 5964 4453 6814 1288
-2049 0574 4653 3938 2985 1429 6474
-7859 8266 3678 8699 9213 0169 2894
-3325 4781 8028 0413 7911 6546 1444
-5628 9571 4237 2823 9064 4739 5480
-0627 7368 3017 8573 0121 5098 4813
-0903 7095 6371 1600 8287 4710 6742
-9301 2490 1295 1498 8674 5983 0364
-9146 6022 2701 7862 4608 8177 1356
-9545 0492 5124 6409 0626 7089 1964
-4178 7752 4611 1337 8949 3591 2185
-6952 1890 3458 2919 4466 5601 9082
-0586 8124 3462 7858 1277 5334 3596
-6617 7153 4502 0721 9372 2830 4298
-1580 3044 0703 5356 1603 6025 3862
-7348 1653 3461 5604 5247 0874 2418
-9097 2416 6923 8788 8651 2703 5894
-4361 7430 0954 1384 8690 9622 3879
-6840 2367 5227 7303 9734 0421 4263
-1479 2001 6755 3629 5543 9476 7434
-2494 8310 0503 6937 4069 0508 1909
-8173 3847 5277 0536 6375 2704 9460
-4546 8396 3684 5433 0851 1367 8748
-2070 6907 2393 8628 9053 3274 5635
-7545 9780 9446 5968 2800 7627 0472
-9987 1265 0791 3144 7595 1906 0059
-6547 4278 8159 7934 2440 9083 1735
-2161 5640 1272 0420 8268 3841 6950
-4284 2604 9595 8302 0148 2542 7119
-0733 7659 1410 3790 8954 0026 3275
-6908 5087 6862 7970 5480 2849 6152
-4514 2946 4234 9471 2616 7245 9314
-1081 8805 3138 8092 9076 5850 3694
-6212 2060 7526 0432 7757 4608 9297
-5621 5801 9969 5495 0838 8507 1510
-8064 9740 0195 6922 5019 2853 3598
-7441 0284 7076 6632 1068 4904 1772
-8311 4283 1748 6084 7620 4011 9871
-2308 0667 9716 7079 3107 6946 8577
-0275 5339 8891 4203 7814 5748 2520
+Sen Sel Rab Kam Jum Sab Min
+- - - 1498 2213 1782 7885
+8593 9693 2903 9457 4288 6390 7174
+3318 5242 4946 8698 1126 2389 1002
+8727 6203 7990 7364 2920 2377 0697
+1305 9463 0167 8533 0207 4732 6718
+9155 2345 1055 6819 2244 9910 0083
+1620 3626 6554 2147 7289 4925 8839
+6587 3907 0705 4915 4533 6623 6440
+7736 3006 6314 9675 0788 7300 4988
+5501 6013 6653 6363 7754 6604 6316
+0214 2674 2533 2771 1064 5240 9302
+6945 6945 3907 0948 2974 3782 1054
+9776 9640 8703 2524 7919 0805 7675
+4733 5711 2037 6738 6548 4874 1239
+4288 6764 3878 4002 8273 4503 9268
+7222 7711 8900 6378 3577 5642 7183
+6451 5560 7489 5125 3758 6616 5544
+5668 1737 4513 5649 5452 3978 2825
+9389 6134 2906 1233 0801 1977 2525
+9070 9474 7880 0571 3811 - -
 `;
 
 function addDays(date: Date, days: number): Date {
@@ -80,24 +47,43 @@ function isoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+function parseRows(): string[][] {
+  return HK_RAW_TABLE.trim()
+    .split(/\n+/)
+    .slice(1)
+    .map((row) => row.trim().split(/\s+/));
+}
+
+function findLatestCell(rows: string[][]): { rowIndex: number; colIndex: number } {
+  for (let rowIndex = rows.length - 1; rowIndex >= 0; rowIndex--) {
+    for (let colIndex = DAYS.length - 1; colIndex >= 0; colIndex--) {
+      if (/^\d{4}$/.test(rows[rowIndex]?.[colIndex] ?? "")) {
+        return { rowIndex, colIndex };
+      }
+    }
+  }
+  return { rowIndex: 0, colIndex: 0 };
+}
+
 export function loadUserSuppliedHkHistory(): RawHistoryEntry[] {
-  const start = new Date(`${START_DATE}T00:00:00.000Z`);
-  let offset = 0;
+  const rows = parseRows();
+  const latest = findLatestCell(rows);
+  const latestDate = new Date(`${LATEST_KNOWN_DATE}T00:00:00.000Z`);
   const draws: RawHistoryEntry[] = [];
 
-  const rows = HK_RAW_TABLE.trim().split(/\n+/).slice(1);
-  for (const row of rows) {
-    const cells = row.trim().split(/\s+/);
-    for (const cell of cells) {
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    for (let colIndex = 0; colIndex < DAYS.length; colIndex++) {
+      const cell = rows[rowIndex]?.[colIndex] ?? "";
       if (!/^\d{4}$/.test(cell)) continue;
+
+      const dayOffset = (rowIndex - latest.rowIndex) * 7 + (colIndex - latest.colIndex);
       draws.push({
-        date: isoDate(addDays(start, offset)),
+        date: isoDate(addDays(latestDate, dayOffset)),
         market: "HK",
         result: cell,
       });
-      offset += 1;
     }
   }
 
-  return draws;
+  return draws.sort((a, b) => String(a.date).localeCompare(String(b.date)));
 }
