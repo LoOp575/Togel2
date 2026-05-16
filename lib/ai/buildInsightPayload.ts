@@ -1,5 +1,6 @@
 import type { HistoryEntry, RankedCandidate, ScoreWeights } from "@/types";
 import { analyze } from "@/lib/analyzer";
+import { getNextDrawContext } from "@/lib/dayOfWeek";
 import type { AiInsightPayload } from "./types";
 
 function topEntries<T extends Record<string, number>>(record: T, limit: number) {
@@ -19,6 +20,7 @@ export function buildInsightPayload(params: {
   const { market, history, ranked, weights, topLimit = 50 } = params;
   const stats = analyze(history);
   const latestDraw = history.length > 0 ? history[history.length - 1] : null;
+  const dayContext = getNextDrawContext(history);
 
   const topPairs = topEntries(stats.pairFrequency, 12).map((x) => ({
     pair: x.key,
@@ -42,6 +44,7 @@ export function buildInsightPayload(params: {
 
   return {
     market,
+    nextDrawDay: dayContext.nextDayName,
     latestDraw: latestDraw
       ? {
           date: latestDraw.date,
@@ -61,6 +64,7 @@ export function buildInsightPayload(params: {
       gapScore: Number(candidate.gapScore.toFixed(2)),
       sumScore: Number(candidate.sumScore.toFixed(2)),
       patternScore: Number(candidate.patternScore.toFixed(2)),
+      dayScore: Number(candidate.dayScore.toFixed(2)),
       confidence: candidate.confidence,
     })),
     stats: {
