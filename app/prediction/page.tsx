@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AiInsightPanel } from "@/components/AiInsightPanel";
 import { CandidateTable } from "@/components/CandidateTable";
 import { PageHeader } from "@/components/PageHeader";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 import { StatCard } from "@/components/StatCard";
+import { buildInsightPayload } from "@/lib/ai/buildInsightPayload";
+import type { AiInsightResponse } from "@/lib/ai/types";
 import { loadHistory } from "@/lib/data";
 import { listMarkets, parseHistory } from "@/lib/parser";
 import { scoreAllCandidates } from "@/lib/scoring";
@@ -34,6 +37,12 @@ type ScrapedHistoryPayload = {
   error?: string;
 };
 
+type AiApiResponse = {
+  ok: boolean;
+  data?: AiInsightResponse;
+  error?: string;
+};
+
 export default function PredictionPage() {
   const bundled = useMemo(() => loadHistory(), []);
   const [sourceMode, setSourceMode] = useState<SourceMode>("bundled");
@@ -49,6 +58,9 @@ export default function PredictionPage() {
   const [computing, setComputing] = useState(true);
   const [ranked, setRanked] = useState<RankedCandidate[]>([]);
   const [selected, setSelected] = useState<RankedCandidate | null>(null);
+  const [aiInsight, setAiInsight] = useState<AiInsightResponse | null>(null);
+  const [aiError, setAiError] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     setWeights(loadWeights());
@@ -85,6 +97,34 @@ export default function PredictionPage() {
       setScrapeMessage(error instanceof Error ? error.message : "Unknown scraped history error");
     } finally {
       setScrapeLoading(false);
+    }
+  }
+
+  async function generateAiInsight() {
+    setAiLoading(true);
+    setAiError("");
+    try {
+      const filtered = market === "ALL" ? all : all.filter((h) => h.market === market);
+      const payload = buildInsightPayload({
+        market,
+        history: filtered,
+        ranked,
+        weights,
+        topLimit: 50,
+      });
+
+      const response = await fetch("/api/ai/insight", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = (await response.json()) as AiApiResponse;
+      if (json.data) setAiInsight(json.data);
+      if (!json.ok) setAiError(json.error ?? "AI insight gagal dibuat.");
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : "Unknown AI insight error");
+    } finally {
+      setAiLoading(false);
     }
   }
 
@@ -206,6 +246,12 @@ export default function PredictionPage() {
           />
         </div>
         <div className="space-y-3">
+          <AiInsightPanel
+            insight={aiInsight}
+            loading={aiLoading}
+            error={aiError}
+            onGenerate={generateAiInsight}
+          />
           <ScoreBreakdown candidate={selected} weights={weights} />
           <div className="card text-xs text-gray-400">
             <p className="mb-1 font-semibold text-gray-300">Current weights</p>
