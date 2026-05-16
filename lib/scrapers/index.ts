@@ -1,6 +1,7 @@
 import type { LiveDrawResult, LiveMarket } from "./types";
 import { getLiveSource } from "./sources";
 import { fetchSgp4D } from "./sgp";
+import { fetchHk4D } from "./hk";
 
 export function isLiveMarket(value: string | null): value is LiveMarket {
   return value === "SGP" || value === "HK" || value === "SDY";
@@ -21,5 +22,6 @@ function unsupported(market: LiveMarket): LiveDrawResult {
 
 export async function fetchLiveDraw(market: LiveMarket): Promise<LiveDrawResult> {
   if (market === "SGP") return fetchSgp4D();
+  if (market === "HK") return fetchHk4D();
   return unsupported(market);
 }
