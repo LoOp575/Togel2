@@ -60,6 +60,12 @@ export function ScoreBreakdown({ candidate, weights }: ScoreBreakdownProps) {
       value: candidate.patternScore,
       weight: weights.patternScore,
     },
+    {
+      key: "dayScore",
+      label: "Day Score",
+      value: candidate.dayScore,
+      weight: weights.dayScore,
+    },
   ];
 
   return (
@@ -106,7 +112,7 @@ export function ScoreBreakdown({ candidate, weights }: ScoreBreakdownProps) {
       </div>
 
       <div className="border-t border-bg-border pt-2 text-[11px] text-gray-500">
-        Final = Σ (sub-score × weight). Higher = stronger historical alignment, never a guarantee.
+        Final = Σ (sub-score × weight). Day Score follows the next draw day. Higher = stronger historical alignment, never a guarantee.
       </div>
     </div>
   );
