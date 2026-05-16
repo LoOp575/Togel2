@@ -10,6 +10,7 @@ import { StatCard } from "@/components/StatCard";
 import { buildInsightPayload } from "@/lib/ai/buildInsightPayload";
 import type { AiInsightResponse } from "@/lib/ai/types";
 import { loadHistory } from "@/lib/data";
+import { getNextDrawContext } from "@/lib/dayOfWeek";
 import { listMarkets, parseHistory } from "@/lib/parser";
 import { scoreAllCandidates } from "@/lib/scoring";
 import { loadWeights } from "@/lib/settings";
@@ -143,6 +144,7 @@ export default function PredictionPage() {
 
   const top = ranked[0];
   const activeHistory = market === "ALL" ? all : all.filter((h) => h.market === market);
+  const dayContext = getNextDrawContext(activeHistory);
   const activeDrawCount = activeHistory.length;
   const top10AvgScore =
     ranked.length === 0
@@ -150,6 +152,7 @@ export default function PredictionPage() {
       : ranked.slice(0, 10).reduce((s, r) => s + r.finalScore, 0) / 10;
   const chatContext = {
     market,
+    nextDrawDay: dayContext.nextDayName,
     latestDraw: activeHistory.at(-1) ?? null,
     weights,
     selectedCandidate: selected,
@@ -163,6 +166,7 @@ export default function PredictionPage() {
       gapScore: Number(candidate.gapScore.toFixed(2)),
       sumScore: Number(candidate.sumScore.toFixed(2)),
       patternScore: Number(candidate.patternScore.toFixed(2)),
+      dayScore: Number(candidate.dayScore.toFixed(2)),
       confidence: candidate.confidence,
     })),
   };
@@ -226,12 +230,18 @@ export default function PredictionPage() {
 
       {scrapeMessage ? <div className="card-tight text-xs text-gray-400">{scrapeMessage}</div> : null}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
         <StatCard
           label="Top Candidate"
           value={top ? <span className="mono tracking-widest">{top.number}</span> : "—"}
           hint={top ? `Final score ${top.finalScore.toFixed(2)}` : undefined}
           tone="accent"
+        />
+        <StatCard
+          label="Next Draw Day"
+          value={dayContext.nextDayName ?? "—"}
+          hint={dayContext.latestDraw ? `After ${dayContext.latestDraw.result}` : "Need history"}
+          tone="warn"
         />
         <StatCard
           label="Training Draws"
@@ -283,6 +293,7 @@ export default function PredictionPage() {
               <WeightRow label="Gap" value={weights.gapScore} />
               <WeightRow label="Sum" value={weights.sumScore} />
               <WeightRow label="Pattern" value={weights.patternScore} />
+              <WeightRow label="Day" value={weights.dayScore} />
             </ul>
             <p className="mt-2 text-[11px] text-gray-500">Adjust these on the Settings page.</p>
           </div>
