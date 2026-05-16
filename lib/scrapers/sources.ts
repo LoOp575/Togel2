@@ -11,11 +11,11 @@ export const LIVE_SOURCES: Record<LiveMarket, LiveSourceConfig> = {
   },
   HK: {
     market: "HK",
-    game: "Hong Kong Mark Six",
-    source: "Hong Kong Jockey Club Mark Six Results",
-    sourceUrl: "https://bet.hkjc.com/en/marksix/results",
-    supported4D: false,
-    note: "Official Hong Kong lottery source is Mark Six, not a 4-digit draw. This app will not convert Mark Six into fake 4D results.",
+    game: "HK 4D",
+    source: "Threefolds HK draw page (user supplied)",
+    sourceUrl: "https://threefolds.shop/",
+    supported4D: true,
+    note: "User-supplied HK 4D source. Verify the fetched number against the page before adding it to permanent history.",
   },
   SDY: {
     market: "SDY",
