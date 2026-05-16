@@ -4,6 +4,7 @@ import type {
   ScoreWeights,
 } from "@/types";
 import { DEFAULT_WEIGHTS } from "@/types";
+import { buildDayOfWeekStats, dayScoreRaw, type DayOfWeekStats } from "./dayOfWeek";
 import { digitsOf, formatCandidate } from "./parser";
 import {
   buildProbabilityStats,
@@ -28,6 +29,7 @@ export interface CombinedStats {
   recency: RecencyStats;
   gap: GapStats;
   pattern: PatternStats;
+  dayOfWeek: DayOfWeekStats;
 }
 
 export function buildCombinedStats(history: HistoryEntry[]): CombinedStats {
@@ -36,19 +38,21 @@ export function buildCombinedStats(history: HistoryEntry[]): CombinedStats {
     recency: buildRecencyStats(history),
     gap: buildGapStats(history),
     pattern: buildPatternStats(history),
+    dayOfWeek: buildDayOfWeekStats(history),
   };
 }
 
 /**
  * Score every candidate from "0000" to "9999" and return them ranked.
  *
- * Final score formula:
- *   finalScore = 0.35 * positionScore
- *              + 0.25 * chainScore
+ * Final score formula v2:
+ *   finalScore = 0.28 * positionScore
+ *              + 0.20 * chainScore
  *              + 0.15 * recencyScore
  *              + 0.10 * gapScore
  *              + 0.10 * sumScore
  *              + 0.05 * patternScore
+ *              + 0.12 * dayScore
  *
  * Each sub-score is normalized to a 0..100 scale across all 10000 candidates,
  * then combined linearly with the configured weights.
@@ -72,6 +76,7 @@ export function scoreAllCandidates(
     gap: number;
     sum: number;
     pattern: number;
+    day: number;
   }> = new Array(10000);
 
   let bestPos = 0,
@@ -79,7 +84,8 @@ export function scoreAllCandidates(
     bestRecency = 0,
     bestGap = 0,
     bestSum = 0,
-    bestPattern = 0;
+    bestPattern = 0,
+    bestDay = 0;
 
   for (let n = 0; n < 10000; n++) {
     const number = formatCandidate(n);
@@ -91,6 +97,7 @@ export function scoreAllCandidates(
     const gap = gapScoreRaw(stats.gap, number);
     const sum = sumScoreRaw(stats.pattern, digits);
     const pattern = patternScoreRaw(stats.pattern, digits);
+    const day = dayScoreRaw(stats.dayOfWeek, digits);
 
     if (pos > bestPos) bestPos = pos;
     if (chain > bestChain) bestChain = chain;
@@ -98,8 +105,9 @@ export function scoreAllCandidates(
     if (gap > bestGap) bestGap = gap;
     if (sum > bestSum) bestSum = sum;
     if (pattern > bestPattern) bestPattern = pattern;
+    if (day > bestDay) bestDay = day;
 
-    raw[n] = { number, pos, chain, recency, gap, sum, pattern };
+    raw[n] = { number, pos, chain, recency, gap, sum, pattern, day };
   }
 
   const safe = (x: number) => (x === 0 ? 1 : x);
@@ -112,6 +120,7 @@ export function scoreAllCandidates(
     const gapScore = (r.gap / safe(bestGap)) * 100;
     const sumScore = (r.sum / safe(bestSum)) * 100;
     const patternScore = (r.pattern / safe(bestPattern)) * 100;
+    const dayScore = (r.day / safe(bestDay)) * 100;
 
     const finalScore =
       positionScore * weights.positionScore +
@@ -119,7 +128,8 @@ export function scoreAllCandidates(
       recencyScore * weights.recencyScore +
       gapScore * weights.gapScore +
       sumScore * weights.sumScore +
-      patternScore * weights.patternScore;
+      patternScore * weights.patternScore +
+      dayScore * weights.dayScore;
 
     return {
       rank: 0, // assigned after sort
@@ -131,6 +141,7 @@ export function scoreAllCandidates(
       gapScore,
       sumScore,
       patternScore,
+      dayScore,
       confidence: confidenceLabel(finalScore),
     };
   });
@@ -169,6 +180,7 @@ export function normalizeWeights(weights: ScoreWeights): ScoreWeights {
     gapScore: weights.gapScore / total,
     sumScore: weights.sumScore / total,
     patternScore: weights.patternScore / total,
+    dayScore: weights.dayScore / total,
   };
 }
 
@@ -179,7 +191,8 @@ function sumWeights(w: ScoreWeights): number {
     w.recencyScore +
     w.gapScore +
     w.sumScore +
-    w.patternScore
+    w.patternScore +
+    w.dayScore
   );
 }
 
@@ -196,6 +209,7 @@ function emptyRanking(): RankedCandidate[] {
       gapScore: 0,
       sumScore: 0,
       patternScore: 0,
+      dayScore: 0,
       confidence: "Low",
     });
   }
