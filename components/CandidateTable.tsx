@@ -104,6 +104,7 @@ export function CandidateTable({
               <th className="hidden text-right md:table-cell">Recency</th>
               <th className="hidden text-right md:table-cell">Gap</th>
               <th className="hidden text-right md:table-cell">Pattern</th>
+              <th className="hidden text-right md:table-cell">Day</th>
               <th className="text-right">Confidence</th>
             </tr>
           </thead>
@@ -138,6 +139,9 @@ export function CandidateTable({
                   <td className="mono hidden text-right text-gray-300 md:table-cell">
                     {r.patternScore.toFixed(1)}
                   </td>
+                  <td className="mono hidden text-right text-gray-300 md:table-cell">
+                    {r.dayScore.toFixed(1)}
+                  </td>
                   <td className="text-right">
                     <span className={`pill border ${CONFIDENCE_TONE[r.confidence]}`}>
                       {r.confidence}
@@ -148,7 +152,7 @@ export function CandidateTable({
             })}
             {slice.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-sm text-gray-500">
+                <td colSpan={10} className="py-8 text-center text-sm text-gray-500">
                   No candidates match this search.
                 </td>
               </tr>
