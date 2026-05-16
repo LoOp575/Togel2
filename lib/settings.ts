@@ -1,7 +1,7 @@
 import type { ScoreWeights } from "@/types";
 import { DEFAULT_WEIGHTS } from "@/types";
 
-const STORAGE_KEY = "p4d.weights.v1";
+const STORAGE_KEY = "p4d.weights.v2";
 
 export function loadWeights(): ScoreWeights {
   if (typeof window === "undefined") return { ...DEFAULT_WEIGHTS };
@@ -16,6 +16,7 @@ export function loadWeights(): ScoreWeights {
       gapScore: numberOr(parsed.gapScore, DEFAULT_WEIGHTS.gapScore),
       sumScore: numberOr(parsed.sumScore, DEFAULT_WEIGHTS.sumScore),
       patternScore: numberOr(parsed.patternScore, DEFAULT_WEIGHTS.patternScore),
+      dayScore: numberOr(parsed.dayScore, DEFAULT_WEIGHTS.dayScore),
     };
   } catch {
     return { ...DEFAULT_WEIGHTS };
