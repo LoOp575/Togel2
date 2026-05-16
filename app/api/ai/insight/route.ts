@@ -62,13 +62,26 @@ function extractGeminiText(json: GeminiResponse): string {
   return chunks.join("\n").trim();
 }
 
-function parseJson(text: string): AiInsightResponse {
-  const clean = text
+function extractJsonObject(text: string): string {
+  const trimmed = text
     .replace(/^```json\s*/i, "")
     .replace(/^```\s*/i, "")
     .replace(/```$/i, "")
     .trim();
-  const parsed = JSON.parse(clean) as Partial<AiInsightResponse>;
+
+  if (!trimmed) throw new Error("AI provider returned an empty response.");
+
+  const first = trimmed.indexOf("{");
+  const last = trimmed.lastIndexOf("}");
+  if (first === -1 || last === -1 || last <= first) {
+    throw new Error(`AI provider did not return JSON. Preview: ${trimmed.slice(0, 180)}`);
+  }
+
+  return trimmed.slice(first, last + 1);
+}
+
+function parseJson(text: string): AiInsightResponse {
+  const parsed = JSON.parse(extractJsonObject(text)) as Partial<AiInsightResponse>;
   return {
     summary: typeof parsed.summary === "string" ? parsed.summary : FALLBACK.summary,
     watchlist: Array.isArray(parsed.watchlist)
@@ -85,9 +98,9 @@ function parseJson(text: string): AiInsightResponse {
 }
 
 function buildPrompts(payload: AiInsightPayload) {
-  const system = `You are an AI analyst for a 4-digit statistical ranking engine.\nRules:\n- Do not claim certainty or guaranteed prediction.\n- Use the supplied math-engine data only.\n- Select a small watchlist from the given topCandidates.\n- Explain patterns briefly in Indonesian casual style.\n- Return valid JSON only with keys: summary, watchlist, risk, suggestedAdjustment.\n- watchlist items must be {"number":"0000","reason":"..."}.`;
+  const system = `You are an AI analyst for a 4-digit statistical ranking engine.\nRules:\n- Do not claim certainty or guaranteed prediction.\n- Use the supplied math-engine data only.\n- Select a small watchlist from the given topCandidates.\n- Explain patterns briefly in Indonesian casual style.\n- Return a single valid JSON object only. No markdown. No prose outside JSON.\n- JSON keys: summary, watchlist, risk, suggestedAdjustment.\n- watchlist items must be {"number":"0000","reason":"..."}.`;
 
-  const user = `Analyze this 4D probability-engine payload and return JSON only:\n${JSON.stringify(
+  const user = `Analyze this 4D probability-engine payload and return one JSON object only:\n${JSON.stringify(
     payload
   )}`;
 
@@ -125,7 +138,7 @@ async function callOpenAi(payload: AiInsightPayload, apiKey: string) {
 }
 
 async function callOpenAiCompatible(payload: AiInsightPayload, apiKey: string) {
-  const model = process.env.OPENAI_COMPATIBLE_MODEL || process.env.CUSTOM_AI_MODEL || "claude-opus-4.5";
+  const model = process.env.OPENAI_COMPATIBLE_MODEL || process.env.CUSTOM_AI_MODEL || "deepseek-v3.2";
   const baseUrl = (process.env.OPENAI_COMPATIBLE_BASE_URL || process.env.CUSTOM_AI_BASE_URL || "").replace(/\/$/, "");
   if (!baseUrl) throw new Error("OPENAI_COMPATIBLE_BASE_URL belum dikonfigurasi.");
 
@@ -144,7 +157,6 @@ async function callOpenAiCompatible(payload: AiInsightPayload, apiKey: string) {
       ],
       temperature: 0.2,
       max_tokens: 900,
-      response_format: { type: "json_object" },
     }),
   });
 
@@ -154,7 +166,13 @@ async function callOpenAiCompatible(payload: AiInsightPayload, apiKey: string) {
   }
 
   const json = (await response.json()) as ChatCompletionResponse;
-  return parseJson(extractChatCompletionText(json));
+  const text = extractChatCompletionText(json);
+  if (!text) {
+    throw new Error(
+      `OpenAI-compatible provider returned no message content. Raw: ${JSON.stringify(json).slice(0, 240)}`
+    );
+  }
+  return parseJson(text);
 }
 
 async function callGemini(payload: AiInsightPayload, apiKey: string) {
