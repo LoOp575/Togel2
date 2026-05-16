@@ -12,8 +12,8 @@ export const LIVE_SOURCES: Record<LiveMarket, LiveSourceConfig> = {
   HK: {
     market: "HK",
     game: "HK 4D",
-    source: "Threefolds HK draw page (user supplied)",
-    sourceUrl: "https://threefolds.shop/",
+    source: "HongKong Fun Lotto HK draw page (user supplied)",
+    sourceUrl: "https://hongkongfunlotto.net/",
     supported4D: true,
     note: "User-supplied HK 4D source. Verify the fetched number against the page before adding it to permanent history.",
   },
