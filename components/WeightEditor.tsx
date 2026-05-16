@@ -49,6 +49,11 @@ const FIELDS: FieldDef[] = [
     label: "Pattern Score",
     description: "Odd/even, big/small and repeat-shape blend.",
   },
+  {
+    key: "dayScore",
+    label: "Day-of-Week Score",
+    description: "How well the candidate fits the next draw day's historical pattern.",
+  },
 ];
 
 export function WeightEditor({
@@ -66,7 +71,8 @@ export function WeightEditor({
       weights.recencyScore +
       weights.gapScore +
       weights.sumScore +
-      weights.patternScore,
+      weights.patternScore +
+      weights.dayScore,
     [weights]
   );
   const totalPct = total * 100;
