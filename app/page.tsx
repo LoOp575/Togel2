@@ -3,10 +3,12 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { analyze } from "@/lib/analyzer";
 import { loadHistory } from "@/lib/data";
+import { buildSignalCoverage } from "@/lib/signalCoverage";
 
 export default function DashboardPage() {
   const history = loadHistory();
   const stats = analyze(history);
+  const coverage = buildSignalCoverage(history);
 
   const last = history[history.length - 1];
   const first = history[0];
@@ -83,6 +85,84 @@ export default function DashboardPage() {
         />
       </div>
 
+      {coverage ? (
+        <div className="card space-y-3 border-accent/20 bg-gradient-to-br from-accent/10 via-bg-panel to-bg-panel">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="stat-label">Signal Coverage</p>
+              <h2 className="text-sm font-semibold text-gray-100">Previous Core Signal vs Last Result</h2>
+              <p className="mt-1 text-xs text-gray-500">
+                Membandingkan core digit dari data sebelum hasil terakhir dengan result terbaru.
+              </p>
+            </div>
+            <div className="text-left sm:text-right">
+              <div className="stat-label">Latest</div>
+              <div className="mono text-2xl font-bold tracking-widest text-white">
+                {coverage.latest.result}
+              </div>
+              <div className="text-[11px] text-gray-500">
+                {coverage.latest.market} · {coverage.latest.date}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="rounded-xl border border-bg-border bg-black/20 p-3">
+              <p className="stat-label mb-2">Prior Core</p>
+              <div className="mono text-lg font-semibold text-good">
+                {coverage.priorCoreDigits.join(" · ")}
+              </div>
+            </div>
+            <div className="rounded-xl border border-bg-border bg-black/20 p-3">
+              <p className="stat-label mb-2">Matched</p>
+              <div className="mono text-lg font-semibold text-accent">
+                {coverage.coveredUniqueDigits.length > 0
+                  ? coverage.coveredUniqueDigits.join(" · ")
+                  : "—"}
+              </div>
+              <div className="mt-1 text-[11px] text-gray-500">
+                {coverage.coveredCoreCount}/5 core digits appeared
+              </div>
+            </div>
+            <div className="rounded-xl border border-bg-border bg-black/20 p-3">
+              <p className="stat-label mb-2">Result Coverage</p>
+              <div className="mono text-lg font-semibold text-white">
+                {coverage.coveredSlotCount}/{coverage.totalSlots}
+              </div>
+              <div className="mt-1 text-[11px] text-gray-500">slots covered by prior core</div>
+            </div>
+            <div className="rounded-xl border border-bg-border bg-black/20 p-3">
+              <p className="stat-label mb-2">Warning Digit</p>
+              <div className={coverage.warningDigitAppeared ? "mono text-lg font-semibold text-bad" : "mono text-lg font-semibold text-good"}>
+                {coverage.priorWarningDigits.join(" · ") || "—"}
+              </div>
+              <div className="mt-1 text-[11px] text-gray-500">
+                {coverage.warningDigitAppeared ? "appeared in latest" : "did not appear"}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-xl border border-bg-border bg-black/20 p-3">
+              <p className="stat-label mb-2">Prior Main Candidate</p>
+              <div className="mono text-xl font-semibold tracking-widest text-white">
+                {coverage.priorMainCandidate ?? "—"}
+              </div>
+              <div className="mt-1 text-[11px] text-gray-500">
+                Rank #{coverage.priorMainRank ?? "—"} · same-position digits {coverage.priorMainSamePositionCount}/4
+              </div>
+            </div>
+            <div className="rounded-xl border border-bg-border bg-black/20 p-3">
+              <p className="stat-label mb-2">Read</p>
+              <p className="text-xs leading-relaxed text-gray-400">
+                Ini bukan klaim pasti. Fungsinya untuk melihat apakah sinyal digit sebelumnya punya
+                kedekatan dengan hasil terbaru, meski kandidat 4D utama tidak harus tepat sama.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="card lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
@@ -129,7 +209,7 @@ export default function DashboardPage() {
           <h2 className="text-sm font-semibold text-gray-200">Quick actions</h2>
           <div className="flex flex-col gap-2">
             <Link href="/prediction" className="btn-primary justify-start">
-              Compute candidate ranking →
+              Open AI terminal →
             </Link>
             <Link href="/analyzer" className="btn justify-start">
               Open pattern analyzer →
