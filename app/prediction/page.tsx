@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { AiChatPanel } from "@/components/AiChatPanel";
 import { AiInsightPanel } from "@/components/AiInsightPanel";
 import { CandidateTable } from "@/components/CandidateTable";
+import { CoreSignalPanel } from "@/components/CoreSignalPanel";
 import { PageHeader } from "@/components/PageHeader";
 import { ScoreBreakdown } from "@/components/ScoreBreakdown";
 import { StatCard } from "@/components/StatCard";
 import { buildInsightPayload } from "@/lib/ai/buildInsightPayload";
 import type { AiInsightResponse } from "@/lib/ai/types";
+import { buildCoreSignal } from "@/lib/coreSignal";
 import { loadHistory } from "@/lib/data";
 import { getNextDrawContext } from "@/lib/dayOfWeek";
 import { listMarkets, parseHistory } from "@/lib/parser";
@@ -143,7 +145,6 @@ export default function PredictionPage() {
     return () => clearTimeout(id);
   }, [all, market, weights]);
 
-  const top = ranked[0];
   const activeHistory = market === "ALL" ? all : all.filter((h) => h.market === market);
   const dayContext = getNextDrawContext(activeHistory);
   const activeDrawCount = activeHistory.length;
@@ -151,11 +152,36 @@ export default function PredictionPage() {
     ranked.length === 0
       ? 0
       : ranked.slice(0, 10).reduce((s, r) => s + r.finalScore, 0) / 10;
+  const coreSignal = buildCoreSignal({ history: activeHistory, ranked });
   const chatContext = {
     market,
     nextDrawDay: dayContext.nextDayName,
     latestDraw: activeHistory.at(-1) ?? null,
     weights,
+    coreSignal: {
+      coreDigits: coreSignal.coreDigits.map((item) => ({
+        digit: item.digit,
+        score: Number(item.score.toFixed(2)),
+        reason: item.reason,
+      })),
+      warningDigits: coreSignal.warningDigits.map((item) => ({
+        digit: item.digit,
+        score: Number(item.score.toFixed(2)),
+        reason: item.reason,
+      })),
+      mainCandidate: coreSignal.mainCandidate
+        ? {
+            number: coreSignal.mainCandidate.number,
+            rank: coreSignal.mainCandidate.rank,
+            finalScore: Number(coreSignal.mainCandidate.finalScore.toFixed(2)),
+          }
+        : null,
+      backupCandidates: coreSignal.backupCandidates.map((candidate) => ({
+        number: candidate.number,
+        rank: candidate.rank,
+        finalScore: Number(candidate.finalScore.toFixed(2)),
+      })),
+    },
     selectedCandidate: selected,
     topCandidates: ranked.slice(0, 20).map((candidate) => ({
       rank: candidate.rank,
@@ -217,7 +243,7 @@ export default function PredictionPage() {
         <StatCard
           label="AI Mode"
           value={computing ? "Syncing" : "Ready"}
-          hint="Ask chat to reveal candidates"
+          hint="Core signal active"
           tone={computing ? "warn" : "good"}
         />
         <StatCard
@@ -245,6 +271,7 @@ export default function PredictionPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
+          <CoreSignalPanel signal={coreSignal} />
           <AiChatPanel context={chatContext} />
           <div className="card space-y-3">
             <div className="flex items-center justify-between gap-3">
