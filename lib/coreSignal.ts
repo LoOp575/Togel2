@@ -4,6 +4,13 @@ import { buildEulerPhaseSupport } from "./eulerPhase";
 
 const LN2 = Math.LN2;
 
+export type FormulaSignal = {
+  key: "global" | "recent" | "dayFit" | "eulerPhase" | "resonance" | "candidate";
+  label: string;
+  digits: number[];
+  read: string;
+};
+
 export type CoreDigitItem = {
   digit: number;
   score: number;
@@ -24,6 +31,7 @@ export type CoreSignal = {
   mainCandidate: RankedCandidate | null;
   backupCandidates: RankedCandidate[];
   nextDrawDay: string | null;
+  formulaSignals: FormulaSignal[];
   formula: {
     name: string;
     description: string;
@@ -46,6 +54,14 @@ function normalize(values: number[]) {
   const max = Math.max(...values, 0);
   if (max <= 0) return values.map(() => 0);
   return values.map((value) => (value / max) * 100);
+}
+
+function topDigits(values: number[], limit = 3) {
+  return values
+    .map((score, digit) => ({ digit, score }))
+    .sort((a, b) => b.score - a.score || a.digit - b.digit)
+    .slice(0, limit)
+    .map((item) => item.digit);
 }
 
 function countDigits(rows: HistoryEntry[]) {
@@ -112,6 +128,54 @@ function pickCandidates(
   return { mainCandidate, backupCandidates };
 }
 
+function buildFormulaSignals(params: {
+  globalSupport: number[];
+  recentSupport: number[];
+  daySupport: number[];
+  phaseSupport: number[];
+  resonanceSupport: number[];
+  candidateSupport: number[];
+}): FormulaSignal[] {
+  return [
+    {
+      key: "global",
+      label: "Global Frequency",
+      digits: topDigits(params.globalSupport),
+      read: "Digit yang paling kuat dari seluruh history.",
+    },
+    {
+      key: "recent",
+      label: "Recent Momentum",
+      digits: topDigits(params.recentSupport),
+      read: "Digit yang sedang aktif pada draw terbaru.",
+    },
+    {
+      key: "dayFit",
+      label: "Day Fit",
+      digits: topDigits(params.daySupport),
+      read: "Digit yang cocok dengan hari draw berikutnya.",
+    },
+    {
+      key: "eulerPhase",
+      label: "Euler Phase",
+      digits: topDigits(params.phaseSupport),
+      read: "Digit yang paling selaras dengan siklus hari berikutnya.",
+    },
+    {
+      key: "resonance",
+      label: "Resonance",
+      digits: topDigits(params.resonanceSupport),
+      read: "Digit yang kuat karena recent momentum dan cycle sama-sama mendukung.",
+    },
+    {
+      key: "candidate",
+      label: "Candidate Support",
+      digits: topDigits(params.candidateSupport),
+      read: "Digit yang paling sering muncul di formasi ranking atas.",
+    },
+  ];
+}
+
 export function buildCoreSignal({
   history,
   ranked,
@@ -141,6 +205,14 @@ export function buildCoreSignal({
     arungResonanceKernel(recentSupport[digit], cycleSupport[digit])
   );
   const resonanceSupport = normalize(resonanceRaw);
+  const formulaSignals = buildFormulaSignals({
+    globalSupport,
+    recentSupport,
+    daySupport,
+    phaseSupport,
+    resonanceSupport,
+    candidateSupport,
+  });
 
   const items: CoreDigitItem[] = Array.from({ length: 10 }, (_, digit) => {
     const score =
@@ -192,10 +264,11 @@ export function buildCoreSignal({
     mainCandidate: picked.mainCandidate,
     backupCandidates: picked.backupCandidates,
     nextDrawDay: dayContext.nextDayName,
+    formulaSignals,
     formula: {
-      name: "Arung Phase-Resonance Engine",
+      name: "Arung Formula Mixer",
       description:
-        "Menggabungkan global frequency, recent momentum, day fit, Euler weekly phase, candidate support, dan resonance kernel.",
+        "Setiap formula memberi sinyal terpisah, lalu mixer menggabungkan semuanya menjadi core digit dan formation.",
       weights: {
         global: 15,
         recent: 20,
