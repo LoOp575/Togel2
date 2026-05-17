@@ -11,12 +11,10 @@ type Props = {
 
 const STEPS = [
   "Scanning historical matrix...",
-  "Matching global digit frequency...",
-  "Reading recent momentum...",
-  "Checking day-cycle fit...",
-  "Activating Euler phase alignment...",
-  "Activating resonance kernel...",
-  "Filtering low-support zone...",
+  "Reading separated formula signals...",
+  "Checking Euler phase alignment...",
+  "Activating resonance read...",
+  "Mixing final core cluster...",
   "Building signal formation...",
 ];
 
@@ -69,11 +67,11 @@ export function ArungSignalScanner({ signal, latest }: Props) {
     <div className="card overflow-hidden border-accent/25 bg-gradient-to-br from-accent/10 via-bg-panel to-bg-panel">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="stat-label">Arung Signal Scanner</p>
+          <p className="stat-label">Arung Formula Mixer</p>
           <h2 className="text-lg font-semibold text-white">Offline Probability Radar</h2>
           <p className="mt-1 text-xs leading-relaxed text-gray-400">
-            Local analyze mode. Tidak pakai AI credit. Engine mencocokkan history,
-            recent trend, day-cycle, Euler phase, kandidat teratas, dan resonance kernel.
+            Local analyze mode. Tidak pakai AI credit. Setiap rumus memberi sinyal sendiri,
+            lalu mixer menggabungkannya menjadi core digit dan formation.
           </p>
         </div>
         <button onClick={runScan} disabled={status === "scanning"} className="btn-primary text-xs">
@@ -109,9 +107,32 @@ export function ArungSignalScanner({ signal, latest }: Props) {
 
       {status === "done" ? (
         <div className="mt-4 space-y-4">
+          <div className="rounded-xl border border-bg-border bg-black/20 p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="stat-label">Formula Signals</p>
+                <h3 className="text-sm font-semibold text-gray-100">Each formula has its own read</h3>
+              </div>
+              <div className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-[11px] text-accent">
+                Mixer active
+              </div>
+            </div>
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {signal.formulaSignals.map((formula) => (
+                <div key={formula.key} className="rounded-lg border border-bg-border bg-bg-soft p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-gray-200">{formula.label}</p>
+                    <p className="mono text-sm text-accent">{formula.digits.join(" · ")}</p>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-gray-500">{formula.read}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-xl border border-good/25 bg-good/10 p-3">
-              <p className="stat-label mb-2">Core Signal Digits</p>
+              <p className="stat-label mb-2">Final Mixer Core</p>
               <div className="flex flex-wrap gap-2">
                 {signal.coreDigits.map((item) => (
                   <div key={item.digit} className="rounded-xl border border-good/30 bg-black/20 px-3 py-2 text-center">
@@ -122,6 +143,9 @@ export function ArungSignalScanner({ signal, latest }: Props) {
                   </div>
                 ))}
               </div>
+              <p className="mt-2 text-[11px] text-gray-500">
+                Core final dipilih dari gabungan semua formula, bukan dari satu rumus saja.
+              </p>
             </div>
 
             <div className="rounded-xl border border-warn/25 bg-warn/10 p-3">
@@ -140,12 +164,12 @@ export function ArungSignalScanner({ signal, latest }: Props) {
 
           <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded-xl border border-accent/30 bg-black/30 p-4 md:col-span-2">
-              <p className="stat-label">Main Formation</p>
+              <p className="stat-label">Best Formation</p>
               <div className="mt-1 mono text-4xl font-bold tracking-widest text-white">
                 {main?.number ?? "—"}
               </div>
               <p className="mt-2 text-xs text-gray-400">
-                Formation dibangun dari core digit, Euler phase, resonance, gap, recency, day score, dan penalty low-support.
+                Formation dipilih dari ranking kandidat, core final, phase, resonance, gap, recency, dan penalty low-support.
               </p>
             </div>
 
@@ -153,7 +177,7 @@ export function ArungSignalScanner({ signal, latest }: Props) {
               <p className="stat-label mb-2">Low Support</p>
               <div className="mono text-3xl font-bold text-bad">{lowSupport?.digit ?? "—"}</div>
               <p className="mt-2 text-xs text-gray-400">
-                Digit paling lemah saat ini. Bukan mustahil keluar, tapi perlu diwaspadai.
+                Digit paling lemah saat ini. Bukan mustahil keluar, tapi jangan dijadikan poros utama.
               </p>
             </div>
           </div>
@@ -171,16 +195,11 @@ export function ArungSignalScanner({ signal, latest }: Props) {
           </div>
 
           <div className="rounded-xl border border-bg-border bg-black/20 p-3 text-xs leading-relaxed text-gray-400">
-            <p className="mb-1 font-semibold text-gray-200">{signal.formula.name}</p>
-            <div className="space-y-1 mono text-[11px] text-accent">
-              <p>Euler: θ(day)=2π·day/7</p>
-              <p>EulerPhaseFit(d)=(cos(θ_next−θ_peak(d))+1)/2</p>
-              <p>{signal.formula.cycle}</p>
-              <p>{signal.formula.kernel}</p>
-            </div>
-            <p className="mt-2">
-              Core Score = 15% global + 20% recent + 20% cycle + 25% candidate support + 20% resonance.
-              Cycle membaca gabungan day fit dan Euler phase; resonance membaca hubungan recent momentum dan cycle dengan normalizer ln(2).
+            <p className="mb-1 font-semibold text-gray-200">How to Read</p>
+            <p>
+              Euler Phase adalah sinyal hari/siklus. Recent membaca trend terbaru. Global membaca history umum.
+              Resonance membaca interaksi recent dan cycle. Candidate Support membaca digit yang kuat di formasi ranking atas.
+              Final Mixer menggabungkan semua sinyal menjadi core final dan formation.
             </p>
           </div>
         </div>
