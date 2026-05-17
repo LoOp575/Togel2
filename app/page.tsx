@@ -1,14 +1,19 @@
 import Link from "next/link";
+import { ArungSignalScanner } from "@/components/ArungSignalScanner";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { analyze } from "@/lib/analyzer";
+import { buildCoreSignal } from "@/lib/coreSignal";
 import { loadHistory } from "@/lib/data";
+import { scoreAllCandidates } from "@/lib/scoring";
 import { buildSignalCoverage } from "@/lib/signalCoverage";
 
 export default function DashboardPage() {
   const history = loadHistory();
   const stats = analyze(history);
   const coverage = buildSignalCoverage(history);
+  const ranking = scoreAllCandidates(history);
+  const signal = buildCoreSignal({ history, ranked: ranking });
 
   const last = history[history.length - 1];
   const first = history[0];
@@ -31,6 +36,8 @@ export default function DashboardPage() {
         title="Dashboard"
         description="High-level summary of your historical 4D data and current pattern signals."
       />
+
+      <ArungSignalScanner signal={signal} latest={last ?? null} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard
