@@ -14,6 +14,7 @@ const STEPS = [
   "Matching global digit frequency...",
   "Reading recent momentum...",
   "Checking day-cycle fit...",
+  "Activating Euler phase alignment...",
   "Activating resonance kernel...",
   "Filtering low-support zone...",
   "Building signal formation...",
@@ -32,12 +33,12 @@ function pickCaution(signal: CoreSignal) {
       a.candidateSupport * 0.4 +
       a.recentSupport * 0.25 +
       a.resonanceSupport * 0.25 -
-      a.daySupport * 0.1;
+      a.cycleSupport * 0.1;
     const riskB =
       b.candidateSupport * 0.4 +
       b.recentSupport * 0.25 +
       b.resonanceSupport * 0.25 -
-      b.daySupport * 0.1;
+      b.cycleSupport * 0.1;
     return riskB - riskA;
   })[0];
 }
@@ -72,7 +73,7 @@ export function ArungSignalScanner({ signal, latest }: Props) {
           <h2 className="text-lg font-semibold text-white">Offline Probability Radar</h2>
           <p className="mt-1 text-xs leading-relaxed text-gray-400">
             Local analyze mode. Tidak pakai AI credit. Engine mencocokkan history,
-            recent trend, day-cycle, kandidat teratas, dan Arung Resonance Kernel.
+            recent trend, day-cycle, Euler phase, kandidat teratas, dan resonance kernel.
           </p>
         </div>
         <button onClick={runScan} disabled={status === "scanning"} className="btn-primary text-xs">
@@ -116,6 +117,7 @@ export function ArungSignalScanner({ signal, latest }: Props) {
                   <div key={item.digit} className="rounded-xl border border-good/30 bg-black/20 px-3 py-2 text-center">
                     <div className="mono text-2xl font-bold text-good">{item.digit}</div>
                     <div className="mono text-[10px] text-gray-400">{fmt(item.score)}</div>
+                    <div className="mono text-[10px] text-sky-300">Φ {fmt(item.phaseSupport)}</div>
                     <div className="mono text-[10px] text-accent">R {fmt(item.resonanceSupport)}</div>
                   </div>
                 ))}
@@ -143,7 +145,7 @@ export function ArungSignalScanner({ signal, latest }: Props) {
                 {main?.number ?? "—"}
               </div>
               <p className="mt-2 text-xs text-gray-400">
-                Formation dibangun dari core digit, resonance, gap, recency, day score, dan penalty low-support.
+                Formation dibangun dari core digit, Euler phase, resonance, gap, recency, day score, dan penalty low-support.
               </p>
             </div>
 
@@ -170,10 +172,15 @@ export function ArungSignalScanner({ signal, latest }: Props) {
 
           <div className="rounded-xl border border-bg-border bg-black/20 p-3 text-xs leading-relaxed text-gray-400">
             <p className="mb-1 font-semibold text-gray-200">{signal.formula.name}</p>
-            <p className="mono mb-2 text-[11px] text-accent">{signal.formula.kernel}</p>
-            <p>
-              Core Score = 15% global + 20% recent + 20% day fit + 25% candidate support + 20% resonance.
-              Resonance membaca hubungan recent momentum dan day-cycle fit dengan normalizer ln(2).
+            <div className="space-y-1 mono text-[11px] text-accent">
+              <p>Euler: θ(day)=2π·day/7</p>
+              <p>EulerPhaseFit(d)=(cos(θ_next−θ_peak(d))+1)/2</p>
+              <p>{signal.formula.cycle}</p>
+              <p>{signal.formula.kernel}</p>
+            </div>
+            <p className="mt-2">
+              Core Score = 15% global + 20% recent + 20% cycle + 25% candidate support + 20% resonance.
+              Cycle membaca gabungan day fit dan Euler phase; resonance membaca hubungan recent momentum dan cycle dengan normalizer ln(2).
             </p>
           </div>
         </div>
