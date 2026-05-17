@@ -1,5 +1,6 @@
 import type { HistoryEntry, RankedCandidate } from "@/types";
 import { dayIndexFromDate, getNextDrawContext } from "./dayOfWeek";
+import { buildEulerPhaseSupport } from "./eulerPhase";
 
 const LN2 = Math.LN2;
 
@@ -9,6 +10,8 @@ export type CoreDigitItem = {
   globalSupport: number;
   recentSupport: number;
   daySupport: number;
+  phaseSupport: number;
+  cycleSupport: number;
   candidateSupport: number;
   resonanceSupport: number;
   resonanceRaw: number;
@@ -26,6 +29,7 @@ export type CoreSignal = {
     description: string;
     weights: Record<string, number>;
     kernel: string;
+    cycle: string;
     normalizer: number;
   };
 };
@@ -63,11 +67,11 @@ function candidateDigitSupport(ranked: RankedCandidate[], limit = 30) {
   return counts;
 }
 
-function arungResonanceKernel(recent: number, day: number) {
+function arungResonanceKernel(recent: number, cycle: number) {
   const x = Math.min(0.999, Math.max(0, recent / 100));
-  const y = Math.min(0.999, Math.max(0, day / 100));
-  const denominator = Math.max(1e-6, (1 - x * y) * (1 + x) * (1 + y));
-  return 1 / denominator / LN2;
+  const y = Math.min(0.999, Math.max(0, cycle / 100));
+  const denominator = Math.max(1e-6, (1 - x * y) * (1 + x) * (1 + y) * LN2);
+  return 1 / denominator;
 }
 
 function uniqueDigitCount(candidate: RankedCandidate, coreSet: Set<number>) {
@@ -128,9 +132,13 @@ export function buildCoreSignal({
   const globalSupport = normalize(globalCounts);
   const recentSupport = normalize(recentCounts);
   const daySupport = normalize(dayCounts);
+  const phaseSupport = buildEulerPhaseSupport(history, dayContext.nextDayIndex).support;
+  const cycleSupport = Array.from({ length: 10 }, (_, digit) =>
+    daySupport[digit] * 0.6 + phaseSupport[digit] * 0.4
+  );
   const candidateSupport = normalize(rankedCounts);
   const resonanceRaw = Array.from({ length: 10 }, (_, digit) =>
-    arungResonanceKernel(recentSupport[digit], daySupport[digit])
+    arungResonanceKernel(recentSupport[digit], cycleSupport[digit])
   );
   const resonanceSupport = normalize(resonanceRaw);
 
@@ -138,14 +146,15 @@ export function buildCoreSignal({
     const score =
       globalSupport[digit] * 0.15 +
       recentSupport[digit] * 0.2 +
-      daySupport[digit] * 0.2 +
+      cycleSupport[digit] * 0.2 +
       candidateSupport[digit] * 0.25 +
       resonanceSupport[digit] * 0.2;
 
     const strongest = [
       { label: "global", value: globalSupport[digit] },
       { label: "recent", value: recentSupport[digit] },
-      { label: "day", value: daySupport[digit] },
+      { label: "cycle", value: cycleSupport[digit] },
+      { label: "phase", value: phaseSupport[digit] },
       { label: "candidate", value: candidateSupport[digit] },
       { label: "resonance", value: resonanceSupport[digit] },
     ].sort((a, b) => b.value - a.value)[0];
@@ -156,6 +165,8 @@ export function buildCoreSignal({
       globalSupport: globalSupport[digit],
       recentSupport: recentSupport[digit],
       daySupport: daySupport[digit],
+      phaseSupport: phaseSupport[digit],
+      cycleSupport: cycleSupport[digit],
       candidateSupport: candidateSupport[digit],
       resonanceSupport: resonanceSupport[digit],
       resonanceRaw: resonanceRaw[digit],
@@ -182,17 +193,18 @@ export function buildCoreSignal({
     backupCandidates: picked.backupCandidates,
     nextDrawDay: dayContext.nextDayName,
     formula: {
-      name: "Arung Resonance Kernel",
+      name: "Arung Phase-Resonance Engine",
       description:
-        "Membaca resonansi antara recent momentum dan day-cycle fit, lalu menggabungkannya dengan global, recent, day, dan candidate support.",
+        "Menggabungkan global frequency, recent momentum, day fit, Euler weekly phase, candidate support, dan resonance kernel.",
       weights: {
         global: 15,
         recent: 20,
-        dayFit: 20,
+        cycle: 20,
         candidateSupport: 25,
         resonance: 20,
       },
-      kernel: "R(d)=1/((1-x(d)y(d))(1+x(d))(1+y(d))) / ln(2)",
+      cycle: "Cycle(d)=0.60*DayFit(d)+0.40*EulerPhaseFit(d)",
+      kernel: "Resonance(d)=1/((1-Recent(d)*Cycle(d))*(1+Recent(d))*(1+Cycle(d))*ln(2))",
       normalizer: LN2,
     },
   };
