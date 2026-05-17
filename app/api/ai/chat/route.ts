@@ -63,11 +63,33 @@ function extractGeminiText(json: GeminiResponse): string {
   return chunks.join("\n").trim();
 }
 
-function systemPrompt(context: unknown) {
-  return `Kamu adalah AI assistant di dalam web 4D Probability Engine.\nGaya bahasa santai, jelas, bahasa Indonesia, boleh panggil user bro.\nKamu boleh ngobrol umum, tapi kalau membahas angka 4D/togel/probability, gunakan konteks engine yang diberikan.\nJangan klaim prediksi pasti, jangan jamin angka keluar, dan selalu sebut ranking angka bersifat statistik/probabilitas.\nKalau pertanyaan berisiko/ilegal/berbahaya, tolak dengan aman.\n\nKonteks tool saat ini:\n${JSON.stringify(context ?? {}, null, 2)}`;
+function looksLikeEngineQuestion(message: string): boolean {
+  return /(angka|digit|core|warning|prediksi|prediction|probabil|togel|hk|draw|result|keluaran|ranking|candidate|kandidat|score|backtest|rumus|history|data|pasaran)/i.test(
+    message
+  );
 }
 
-function recentMessages(history: ChatMessage[] | undefined, limit = 8) {
+function compactContext(context: unknown) {
+  if (!context || typeof context !== "object") return null;
+  const ctx = context as Record<string, unknown>;
+  return {
+    market: ctx.market,
+    nextDrawDay: ctx.nextDrawDay,
+    latestDraw: ctx.latestDraw,
+    coreSignal: ctx.coreSignal,
+    selectedCandidate: ctx.selectedCandidate,
+    topCandidates: Array.isArray(ctx.topCandidates) ? ctx.topCandidates.slice(0, 10) : undefined,
+  };
+}
+
+function systemPrompt(req: ChatRequest) {
+  const shouldUseEngineContext = looksLikeEngineQuestion(req.message);
+  const toolContext = shouldUseEngineContext ? compactContext(req.context) : null;
+
+  return `Kamu adalah AI assistant yang bisa ngobrol natural dengan user.\nGaya bahasa: santai, ramah, jelas, bahasa Indonesia, boleh panggil user bro.\n\nMode utama:\n- Jawab seperti chatbot umum kalau pertanyaan user umum atau ngobrol biasa.\n- Jangan memaksa semua jawaban menjadi analisis data.\n- Jangan menyebut data engine kalau pertanyaan tidak butuh itu.\n- Kalau user bertanya tentang angka, digit, prediction, draw, HK, probabilitas, ranking, backtest, atau rumus, baru gunakan konteks tool.\n- Kalau membahas angka 4D/probabilitas, jangan klaim pasti dan jangan jamin hasil; sebut itu hanya statistik/probabilitas.\n- Kalau pertanyaan berisiko/ilegal/berbahaya, tolak dengan aman.\n\nKonteks tool hanya untuk pertanyaan yang relevan:\n${JSON.stringify(toolContext ?? {}, null, 2)}`;
+}
+
+function recentMessages(history: ChatMessage[] | undefined, limit = 10) {
   return (history ?? []).slice(-limit).filter((m) => m.content.trim().length > 0);
 }
 
@@ -75,7 +97,7 @@ async function callOpenAi(req: ChatRequest, apiKey: string) {
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
   const messages = recentMessages(req.history);
   const input = [
-    { role: "system", content: systemPrompt(req.context) },
+    { role: "system", content: systemPrompt(req) },
     ...messages.map((m) => ({ role: m.role, content: m.content })),
     { role: "user", content: req.message },
   ];
@@ -89,8 +111,8 @@ async function callOpenAi(req: ChatRequest, apiKey: string) {
     body: JSON.stringify({
       model,
       input,
-      temperature: 0.5,
-      max_output_tokens: 900,
+      temperature: 0.75,
+      max_output_tokens: 1100,
     }),
   });
 
@@ -109,7 +131,7 @@ async function callOpenAiCompatible(req: ChatRequest, apiKey: string) {
   if (!baseUrl) throw new Error("OPENAI_COMPATIBLE_BASE_URL belum dikonfigurasi.");
 
   const messages = [
-    { role: "system", content: systemPrompt(req.context) },
+    { role: "system", content: systemPrompt(req) },
     ...recentMessages(req.history).map((m) => ({ role: m.role, content: m.content })),
     { role: "user", content: req.message },
   ];
@@ -123,8 +145,8 @@ async function callOpenAiCompatible(req: ChatRequest, apiKey: string) {
     body: JSON.stringify({
       model,
       messages,
-      temperature: 0.5,
-      max_tokens: 900,
+      temperature: 0.75,
+      max_tokens: 1100,
     }),
   });
 
@@ -153,12 +175,12 @@ async function callGemini(req: ChatRequest, apiKey: string) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       systemInstruction: {
-        parts: [{ text: systemPrompt(req.context) }],
+        parts: [{ text: systemPrompt(req) }],
       },
       contents: [...history, { role: "user", parts: [{ text: req.message }] }],
       generationConfig: {
-        temperature: 0.5,
-        maxOutputTokens: 900,
+        temperature: 0.75,
+        maxOutputTokens: 1100,
       },
     }),
   });
