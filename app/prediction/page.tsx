@@ -57,6 +57,7 @@ export default function PredictionPage() {
   const [market, setMarket] = useState("ALL");
   const [weights, setWeights] = useState<ScoreWeights>(DEFAULT_WEIGHTS);
   const [view, setView] = useState<"top20" | "all">("top20");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [computing, setComputing] = useState(true);
   const [ranked, setRanked] = useState<RankedCandidate[]>([]);
   const [selected, setSelected] = useState<RankedCandidate | null>(null);
@@ -174,8 +175,8 @@ export default function PredictionPage() {
   return (
     <>
       <PageHeader
-        title="Prediction"
-        description="Ranked candidates 0000–9999 weighted by your scoring formula. Click any row to inspect its sub-score breakdown."
+        title="AI Prediction Terminal"
+        description="Ask the AI for candidate numbers. The ranking engine runs silently in the background and only appears in Advanced Data."
         actions={
           <div className="flex flex-wrap gap-2">
             <select
@@ -206,36 +207,18 @@ export default function PredictionPage() {
                 </option>
               ))}
             </select>
-            <div className="flex rounded-md border border-bg-border bg-bg-soft p-0.5">
-              <button
-                onClick={() => setView("top20")}
-                className={`rounded px-2.5 py-1 text-xs ${
-                  view === "top20" ? "bg-accent text-white" : "text-gray-400"
-                }`}
-              >
-                Top 20
-              </button>
-              <button
-                onClick={() => setView("all")}
-                className={`rounded px-2.5 py-1 text-xs ${
-                  view === "all" ? "bg-accent text-white" : "text-gray-400"
-                }`}
-              >
-                All 10,000
-              </button>
-            </div>
           </div>
         }
       />
 
       {scrapeMessage ? <div className="card-tight text-xs text-gray-400">{scrapeMessage}</div> : null}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <StatCard
-          label="Top Candidate"
-          value={top ? <span className="mono tracking-widest">{top.number}</span> : "—"}
-          hint={top ? `Final score ${top.finalScore.toFixed(2)}` : undefined}
-          tone="accent"
+          label="AI Mode"
+          value={computing ? "Syncing" : "Ready"}
+          hint="Ask chat to reveal candidates"
+          tone={computing ? "warn" : "good"}
         />
         <StatCard
           label="Next Draw Day"
@@ -249,31 +232,63 @@ export default function PredictionPage() {
           hint={sourceMode === "scrapedHK" ? "Scraped source" : "Bundled data"}
         />
         <StatCard
-          label="Top-10 Avg Score"
+          label="Engine Health"
           value={top10AvgScore.toFixed(2)}
-          hint="Mean final score of the top 10"
+          hint="Top-10 average score"
         />
         <StatCard
-          label="Candidates Ranked"
+          label="Ranked Pool"
           value={ranked.length.toLocaleString()}
-          hint="0000 through 9999"
-        />
-        <StatCard
-          label="Status"
-          value={computing ? "Computing…" : "Ready"}
-          tone={computing ? "warn" : "good"}
+          hint="Hidden candidates"
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <CandidateTable
-            rows={ranked}
-            onSelect={setSelected}
-            selectedNumber={selected?.number ?? null}
-            limit={view === "top20" ? 20 : undefined}
-            compact={view === "top20"}
-          />
+        <div className="space-y-4 lg:col-span-2">
+          <AiChatPanel context={chatContext} />
+          <div className="card space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="stat-label">Advanced Data</p>
+                <h2 className="font-semibold text-gray-100">Hidden Ranking Engine</h2>
+                <p className="mt-1 text-xs text-gray-500">
+                  Tabel probabilitas disembunyikan supaya angka rekomendasi keluar lewat AI Chat.
+                </p>
+              </div>
+              <button className="btn text-xs" onClick={() => setShowAdvanced((v) => !v)}>
+                {showAdvanced ? "Hide" : "Show"}
+              </button>
+            </div>
+            {showAdvanced ? (
+              <div className="space-y-3">
+                <div className="flex rounded-md border border-bg-border bg-bg-soft p-0.5">
+                  <button
+                    onClick={() => setView("top20")}
+                    className={`rounded px-2.5 py-1 text-xs ${
+                      view === "top20" ? "bg-accent text-white" : "text-gray-400"
+                    }`}
+                  >
+                    Top 20
+                  </button>
+                  <button
+                    onClick={() => setView("all")}
+                    className={`rounded px-2.5 py-1 text-xs ${
+                      view === "all" ? "bg-accent text-white" : "text-gray-400"
+                    }`}
+                  >
+                    All 10,000
+                  </button>
+                </div>
+                <CandidateTable
+                  rows={ranked}
+                  onSelect={setSelected}
+                  selectedNumber={selected?.number ?? null}
+                  limit={view === "top20" ? 20 : undefined}
+                  compact={view === "top20"}
+                />
+              </div>
+            ) : null}
+          </div>
         </div>
         <div className="space-y-3">
           <AiInsightPanel
@@ -282,8 +297,7 @@ export default function PredictionPage() {
             error={aiError}
             onGenerate={generateAiInsight}
           />
-          <AiChatPanel context={chatContext} />
-          <ScoreBreakdown candidate={selected} weights={weights} />
+          {showAdvanced ? <ScoreBreakdown candidate={selected} weights={weights} /> : null}
           <div className="card text-xs text-gray-400">
             <p className="mb-1 font-semibold text-gray-300">Current weights</p>
             <ul className="space-y-1">
