@@ -14,6 +14,7 @@ const STEPS = [
   "Matching global digit frequency...",
   "Reading recent momentum...",
   "Checking day-cycle fit...",
+  "Activating resonance kernel...",
   "Filtering low-support zone...",
   "Building signal formation...",
 ];
@@ -26,11 +27,17 @@ function pickCaution(signal: CoreSignal) {
   const core = signal.coreDigits;
   if (core.length === 0) return null;
 
-  // Caution is not always the weakest digit. It is the strongest digit that may be over-dominant.
-  // A high candidateSupport but weaker daySupport means the digit is powerful, but needs care.
   return [...core].sort((a, b) => {
-    const riskA = a.candidateSupport * 0.45 + a.recentSupport * 0.35 - a.daySupport * 0.2;
-    const riskB = b.candidateSupport * 0.45 + b.recentSupport * 0.35 - b.daySupport * 0.2;
+    const riskA =
+      a.candidateSupport * 0.4 +
+      a.recentSupport * 0.25 +
+      a.resonanceSupport * 0.25 -
+      a.daySupport * 0.1;
+    const riskB =
+      b.candidateSupport * 0.4 +
+      b.recentSupport * 0.25 +
+      b.resonanceSupport * 0.25 -
+      b.daySupport * 0.1;
     return riskB - riskA;
   })[0];
 }
@@ -64,8 +71,8 @@ export function ArungSignalScanner({ signal, latest }: Props) {
           <p className="stat-label">Arung Signal Scanner</p>
           <h2 className="text-lg font-semibold text-white">Offline Probability Radar</h2>
           <p className="mt-1 text-xs leading-relaxed text-gray-400">
-            Local analyze mode. Tidak pakai AI credit. Engine mencocokkan rumus, history,
-            recent trend, day-cycle, dan kandidat teratas.
+            Local analyze mode. Tidak pakai AI credit. Engine mencocokkan history,
+            recent trend, day-cycle, kandidat teratas, dan Arung Resonance Kernel.
           </p>
         </div>
         <button onClick={runScan} disabled={status === "scanning"} className="btn-primary text-xs">
@@ -109,6 +116,7 @@ export function ArungSignalScanner({ signal, latest }: Props) {
                   <div key={item.digit} className="rounded-xl border border-good/30 bg-black/20 px-3 py-2 text-center">
                     <div className="mono text-2xl font-bold text-good">{item.digit}</div>
                     <div className="mono text-[10px] text-gray-400">{fmt(item.score)}</div>
+                    <div className="mono text-[10px] text-accent">R {fmt(item.resonanceSupport)}</div>
                   </div>
                 ))}
               </div>
@@ -122,7 +130,7 @@ export function ArungSignalScanner({ signal, latest }: Props) {
                   <div className="mono text-[10px] text-gray-400">{caution ? fmt(caution.score) : "—"}</div>
                 </div>
                 <p className="text-xs leading-relaxed text-gray-400">
-                  Digit ini kuat, tapi terdeteksi dominan. Pakai sebagai pendukung, jangan terlalu dijadikan poros tunggal.
+                  Digit ini kuat, tapi dominan. Pakai sebagai pendukung, jangan dijadikan poros tunggal.
                 </p>
               </div>
             </div>
@@ -135,7 +143,7 @@ export function ArungSignalScanner({ signal, latest }: Props) {
                 {main?.number ?? "—"}
               </div>
               <p className="mt-2 text-xs text-gray-400">
-                Formation dibangun dari core digit, disaring dengan gap, recency, day score, dan penalty low-support.
+                Formation dibangun dari core digit, resonance, gap, recency, day score, dan penalty low-support.
               </p>
             </div>
 
@@ -161,10 +169,11 @@ export function ArungSignalScanner({ signal, latest }: Props) {
           </div>
 
           <div className="rounded-xl border border-bg-border bg-black/20 p-3 text-xs leading-relaxed text-gray-400">
-            <p className="mb-1 font-semibold text-gray-200">Signal Formula</p>
+            <p className="mb-1 font-semibold text-gray-200">{signal.formula.name}</p>
+            <p className="mono mb-2 text-[11px] text-accent">{signal.formula.kernel}</p>
             <p>
-              Core Score = 20% global frequency + 25% recent trend + 25% day fit + 30% candidate support.
-              Caution Score membaca dominasi recent/candidate support. Low Support membaca digit dengan dukungan paling rendah.
+              Core Score = 15% global + 20% recent + 20% day fit + 25% candidate support + 20% resonance.
+              Resonance membaca hubungan recent momentum dan day-cycle fit dengan normalizer ln(2).
             </p>
           </div>
         </div>
