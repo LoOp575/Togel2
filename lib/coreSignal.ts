@@ -1,6 +1,8 @@
 import type { HistoryEntry, RankedCandidate } from "@/types";
 import { dayIndexFromDate, getNextDrawContext } from "./dayOfWeek";
 
+const LN2 = Math.LN2;
+
 export type CoreDigitItem = {
   digit: number;
   score: number;
@@ -8,6 +10,8 @@ export type CoreDigitItem = {
   recentSupport: number;
   daySupport: number;
   candidateSupport: number;
+  resonanceSupport: number;
+  resonanceRaw: number;
   reason: string;
 };
 
@@ -17,6 +21,13 @@ export type CoreSignal = {
   mainCandidate: RankedCandidate | null;
   backupCandidates: RankedCandidate[];
   nextDrawDay: string | null;
+  formula: {
+    name: string;
+    description: string;
+    weights: Record<string, number>;
+    kernel: string;
+    normalizer: number;
+  };
 };
 
 type BuildCoreSignalParams = {
@@ -50,6 +61,13 @@ function candidateDigitSupport(ranked: RankedCandidate[], limit = 30) {
     }
   }
   return counts;
+}
+
+function arungResonanceKernel(recent: number, day: number) {
+  const x = Math.min(0.999, Math.max(0, recent / 100));
+  const y = Math.min(0.999, Math.max(0, day / 100));
+  const denominator = Math.max(1e-6, (1 - x * y) * (1 + x) * (1 + y));
+  return 1 / denominator / LN2;
 }
 
 function uniqueDigitCount(candidate: RankedCandidate, coreSet: Set<number>) {
@@ -111,19 +129,25 @@ export function buildCoreSignal({
   const recentSupport = normalize(recentCounts);
   const daySupport = normalize(dayCounts);
   const candidateSupport = normalize(rankedCounts);
+  const resonanceRaw = Array.from({ length: 10 }, (_, digit) =>
+    arungResonanceKernel(recentSupport[digit], daySupport[digit])
+  );
+  const resonanceSupport = normalize(resonanceRaw);
 
   const items: CoreDigitItem[] = Array.from({ length: 10 }, (_, digit) => {
     const score =
-      globalSupport[digit] * 0.2 +
-      recentSupport[digit] * 0.25 +
-      daySupport[digit] * 0.25 +
-      candidateSupport[digit] * 0.3;
+      globalSupport[digit] * 0.15 +
+      recentSupport[digit] * 0.2 +
+      daySupport[digit] * 0.2 +
+      candidateSupport[digit] * 0.25 +
+      resonanceSupport[digit] * 0.2;
 
     const strongest = [
       { label: "global", value: globalSupport[digit] },
       { label: "recent", value: recentSupport[digit] },
       { label: "day", value: daySupport[digit] },
       { label: "candidate", value: candidateSupport[digit] },
+      { label: "resonance", value: resonanceSupport[digit] },
     ].sort((a, b) => b.value - a.value)[0];
 
     return {
@@ -133,6 +157,8 @@ export function buildCoreSignal({
       recentSupport: recentSupport[digit],
       daySupport: daySupport[digit],
       candidateSupport: candidateSupport[digit],
+      resonanceSupport: resonanceSupport[digit],
+      resonanceRaw: resonanceRaw[digit],
       reason:
         strongest.value <= 0
           ? "low support across the engine"
@@ -155,5 +181,19 @@ export function buildCoreSignal({
     mainCandidate: picked.mainCandidate,
     backupCandidates: picked.backupCandidates,
     nextDrawDay: dayContext.nextDayName,
+    formula: {
+      name: "Arung Resonance Kernel",
+      description:
+        "Membaca resonansi antara recent momentum dan day-cycle fit, lalu menggabungkannya dengan global, recent, day, dan candidate support.",
+      weights: {
+        global: 15,
+        recent: 20,
+        dayFit: 20,
+        candidateSupport: 25,
+        resonance: 20,
+      },
+      kernel: "R(d)=1/((1-x(d)y(d))(1+x(d))(1+y(d))) / ln(2)",
+      normalizer: LN2,
+    },
   };
 }
