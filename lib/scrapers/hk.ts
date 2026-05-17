@@ -10,6 +10,8 @@ function normalizeText(html: string): string {
     .replace(/&amp;/g, "&")
     .replace(/&#x2F;/g, "/")
     .replace(/&#47;/g, "/")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -40,23 +42,44 @@ function extractDate(text: string): string | null {
   return null;
 }
 
+function extractBySelectorHint(text: string): string | null {
+  const hint = process.env.HK_LIVE_RESULT_SELECTOR_TEXT?.trim().toLowerCase();
+  if (!hint) return null;
+  const lower = text.toLowerCase();
+  const index = lower.indexOf(hint);
+  if (index === -1) return null;
+  const window = text.slice(index, Math.min(text.length, index + 220));
+  const match = window.match(/\b\d{4}\b/);
+  return match?.[0] ?? null;
+}
+
 function scoreContextAround(text: string, index: number): number {
-  const start = Math.max(0, index - 90);
-  const end = Math.min(text.length, index + 90);
+  const start = Math.max(0, index - 140);
+  const end = Math.min(text.length, index + 140);
   const ctx = text.slice(start, end).toLowerCase();
   let score = 0;
 
-  if (/hk|hong\s*kong|hkg/.test(ctx)) score += 4;
-  if (/result|draw|keluar|hasil|nomor|number/.test(ctx)) score += 3;
-  if (/4d|4\s*digit|four\s*digit/.test(ctx)) score += 3;
-  if (/1st|first|prize|utama/.test(ctx)) score += 2;
+  // Strong positive labels usually close to the actual live result.
+  if (/live\s*draw|live\s*result|result\s*live|draw\s*live/.test(ctx)) score += 12;
+  if (/keluaran\s*hk|hasil\s*hk|result\s*hk|hk\s*result|hongkong\s*result/.test(ctx)) score += 10;
+  if (/result|draw|keluar|keluaran|hasil|nomor|number|angka/.test(ctx)) score += 6;
+  if (/hk|hong\s*kong|hongkong|hkg/.test(ctx)) score += 5;
+  if (/4d|4\s*digit|four\s*digit/.test(ctx)) score += 4;
+  if (/1st|first|prize|utama/.test(ctx)) score += 3;
+  if (/today|hari\s*ini|latest|terbaru|current|sekarang/.test(ctx)) score += 3;
   if (/date|tanggal|periode|period/.test(ctx)) score += 1;
-  if (/whatsapp|telegram|login|password|bonus|promo|deposit|slot/.test(ctx)) score -= 4;
+
+  // Negative labels often close to contact, ads, menus, counters, or SEO text.
+  if (/whatsapp|telegram|login|password|bonus|promo|deposit|slot|casino|register|daftar|copyright|admin|kontak|rekening/.test(ctx)) score -= 10;
+  if (/tahun|year|copyright|since|visitor|views|online/.test(ctx)) score -= 5;
 
   return score;
 }
 
 function extractBestFourDigit(text: string): string | null {
+  const hinted = extractBySelectorHint(text);
+  if (hinted) return hinted;
+
   const matches = Array.from(text.matchAll(/\b\d{4}\b/g));
   if (matches.length === 0) return null;
 
@@ -68,9 +91,9 @@ function extractBestFourDigit(text: string): string | null {
     }))
     .filter((item) => {
       const numeric = Number(item.value);
-      // Avoid common years such as 2024/2025/2026 being selected as results.
+      // Avoid common years such as 2024/2025/2026 being selected as results unless context is very strong.
       const looksLikeYear = numeric >= 2000 && numeric <= 2099;
-      return !looksLikeYear || item.score >= 6;
+      return !looksLikeYear || item.score >= 14;
     })
     .sort((a, b) => b.score - a.score || a.index - b.index);
 
