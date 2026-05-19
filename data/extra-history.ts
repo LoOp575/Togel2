@@ -17,5 +17,10 @@ export function loadExtraHistoryRows(): RawHistoryEntry[] {
       market: ["H", "K"].join(""),
       result: ["74", "30"].join(""),
     },
+    {
+      date: "2026-05-19",
+      market: ["H", "K"].join(""),
+      result: ["06", "38"].join(""),
+    },
   ];
 }
