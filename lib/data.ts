@@ -3,8 +3,7 @@ import { loadExtraHistoryRows } from "@/data/extra-history";
 import { loadUserSuppliedHkHistory } from "@/data/hk-history";
 import type { HistoryEntry, RawHistoryEntry } from "@/types";
 import { parseHistory } from "./parser";
-
-let cached: HistoryEntry[] | null = null;
+import { getRuntimeHistoryRows } from "./runtimeHistory";
 
 function mergeRows(rows: RawHistoryEntry[]): RawHistoryEntry[] {
   const map = new Map<string, RawHistoryEntry>();
@@ -17,17 +16,15 @@ function mergeRows(rows: RawHistoryEntry[]): RawHistoryEntry[] {
 }
 
 /**
- * Load and cache the parsed history. Safe to call from server and client
- * components since the JSON/table data is statically bundled at build time.
+ * Load and parse history. Runtime manual rows are intentionally not cached so
+ * dashboard refreshes can immediately read newly added live draw inputs.
  */
 export function loadHistory(): HistoryEntry[] {
-  if (cached) return cached;
-
   const userSuppliedHk = loadUserSuppliedHkHistory();
   const extraRows = loadExtraHistoryRows();
+  const runtimeRows = getRuntimeHistoryRows();
   const fallbackSample = historyJson as RawHistoryEntry[];
   const baseRows = userSuppliedHk.length > 0 ? userSuppliedHk : fallbackSample;
 
-  cached = parseHistory(mergeRows([...baseRows, ...extraRows]));
-  return cached;
+  return parseHistory(mergeRows([...baseRows, ...extraRows, ...runtimeRows]));
 }
