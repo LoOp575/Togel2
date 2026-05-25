@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArungSignalScanner } from "@/components/ArungSignalScanner";
+import { ManualDrawForm } from "@/components/ManualDrawForm";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { analyze } from "@/lib/analyzer";
@@ -36,6 +37,8 @@ export default function DashboardPage() {
         title="Dashboard"
         description="High-level summary of your historical 4D data and current pattern signals."
       />
+
+      <ManualDrawForm defaultMarket={last?.market ?? "HK"} defaultDate={last?.date} />
 
       <ArungSignalScanner signal={signal} latest={last ?? null} />
 
@@ -229,7 +232,7 @@ export default function DashboardPage() {
             </Link>
           </div>
           <p className="text-[11px] text-gray-500">
-            All computation runs locally in your browser using the bundled history file.
+            All computation runs locally in your browser using the bundled history file plus runtime manual draw input.
           </p>
         </div>
       </div>
