@@ -80,5 +80,6 @@
   { "date": "2025-03-20", "market": "HK", "result": "0193" },
   { "date": "2025-03-21", "market": "HK", "result": "8276" },
   { "date": "2025-03-22", "market": "HK", "result": "4965" },
-  { "date": "2025-03-23", "market": "HK", "result": "2810" }
+  { "date": "2025-03-23", "market": "HK", "result": "2810" },
+  { "date": "2026-05-26", "market": "HK", "result": "0140" }
 ]
