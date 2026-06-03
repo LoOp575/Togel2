@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { ArungSignalScanner } from "@/components/ArungSignalScanner";
 import { ManualDrawForm } from "@/components/ManualDrawForm";
+import { NeuralMarketPanel } from "@/components/NeuralMarketPanel";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { analyze } from "@/lib/analyzer";
 import { buildCoreSignal } from "@/lib/coreSignal";
 import { loadHistory } from "@/lib/data";
+import { buildNeuralMarketState } from "@/lib/neuralMarketEngine";
 import { scoreAllCandidates } from "@/lib/scoring";
 import { buildSignalCoverage } from "@/lib/signalCoverage";
 
@@ -15,6 +17,7 @@ export default function DashboardPage() {
   const coverage = buildSignalCoverage(history);
   const ranking = scoreAllCandidates(history);
   const signal = buildCoreSignal({ history, ranked: ranking });
+  const neuralState = buildNeuralMarketState(history);
 
   const last = history[history.length - 1];
   const first = history[0];
@@ -35,10 +38,12 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        description="High-level summary of your historical 4D data and current pattern signals."
+        description="High-level summary of your historical 4D data, neural formula state, and current pattern signals."
       />
 
       <ManualDrawForm defaultMarket={last?.market ?? "HK"} defaultDate={last?.date} />
+
+      <NeuralMarketPanel report={neuralState} />
 
       <ArungSignalScanner signal={signal} latest={last ?? null} />
 
